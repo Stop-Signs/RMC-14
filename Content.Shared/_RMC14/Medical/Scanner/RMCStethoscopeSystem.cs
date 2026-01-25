@@ -1,14 +1,17 @@
 using System.Linq;
 using Content.Shared._RMC14.Marines.Skills;
+using Content.Shared._RMC14.UniformAccessories;
 using Content.Shared._RMC14.Xenonids;
 using Content.Shared.Damage;
 using Content.Shared.Examine;
-using Content.Shared.Hands.Components;
+using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
 using Content.Shared.Inventory;
 using Content.Shared.Mobs.Components;
+using Content.Shared.Mobs.Systems;
 using Content.Shared.Popups;
 using Content.Shared.Verbs;
+using Robust.Shared.Containers;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Utility;
 
@@ -16,12 +19,16 @@ namespace Content.Shared._RMC14.Medical.Scanner;
 
 public sealed class RMCStethoscopeSystem : EntitySystem
 {
+    [Dependency] private readonly SharedHandsSystem _hands = default!;
     [Dependency] private readonly SharedPopupSystem _popup = default!;
     [Dependency] private readonly ExamineSystemShared _examine = default!;
     [Dependency] private readonly SkillsSystem _skills = default!;
     [Dependency] private readonly InventorySystem _inventorySystem = default!;
+    [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
+    [Dependency] private readonly MobStateSystem _mobState = default!;
 
     private static readonly EntProtoId<SkillDefinitionComponent> MedicalSkill = "RMCSkillMedical";
+    private static readonly string[] AccessorySlots = ["jumpsuit", "outerClothing"];
 
     public override void Initialize()
     {
@@ -67,70 +74,80 @@ public sealed class RMCStethoscopeSystem : EntitySystem
     private bool HasStethoscope(EntityUid user, out EntityUid stethoscope)
     {
         stethoscope = EntityUid.Invalid;
-        if (!TryComp<HandsComponent>(user, out var hands))
-            return false;
-        var held = hands.ActiveHandEntity;
-        if (held != null && HasComp<RMCStethoscopeComponent>(held.Value))
+        if (_hands.TryGetActiveItem(user, out var held) &&
+            HasComp<RMCStethoscopeComponent>(held.Value))
         {
             stethoscope = held.Value;
             return true;
         }
-        if (_inventorySystem.TryGetSlotEntity(user, "neck", out var neckEntity) && HasComp<RMCStethoscopeComponent>(neckEntity.Value))
+
+        foreach (var slot in AccessorySlots)
         {
-            stethoscope = neckEntity.Value;
-            return true;
+            if (!_inventorySystem.TryGetSlotEntity(user, slot, out var slotEntity))
+                continue;
+            if (!TryComp<UniformAccessoryHolderComponent>(slotEntity.Value, out var accessoryHolder))
+                continue;
+            if (!_containerSystem.TryGetContainer(slotEntity.Value, accessoryHolder.ContainerId, out var container))
+                continue;
+            foreach (var accessory in container.ContainedEntities)
+            {
+                if (!HasComp<RMCStethoscopeComponent>(accessory))
+                    continue;
+                stethoscope = accessory;
+                return true;
+            }
         }
+
         return false;
     }
 
     private FormattedMessage GetStethoscopeResults(EntityUid target, EntityUid? user = null)
     {
-        var totalHealth = GetPercentHealth(target);
         var msg = new FormattedMessage();
         if (user != null && !_skills.HasSkill(user.Value, MedicalSkill, 2))
         {
             msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-unskilled"));
             return msg;
         }
-        if (totalHealth == null)
-        {
-            msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-nothing"));
-        }
-        else if (totalHealth >= 87.5f)
-        {
-            msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-normal", ("target", target)));
-        }
-        else if (totalHealth >= 62.5f)
-        {
-            msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-raggedy", ("target", target)));
-        }
-        else if (totalHealth >= 37.5f)
-        {
-            msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-hyper"));
-        }
-        else if (totalHealth >= 1.0f)
-        {
-            msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-irregular", ("target", target)));
-        }
-        else if (totalHealth >= 0.0f)
+
+        if (_mobState.IsDead(target))
         {
             msg.AddMarkupOrThrow(Loc.GetString("rmc-stethoscope-dead"));
+            return msg;
         }
+
+        var totalHealth = GetPercentHealth(target) switch
+        {
+            null => "rmc-stethoscope-nothing",
+            >= 87.5f => "rmc-stethoscope-normal",
+            >= 62.5f => "rmc-stethoscope-raggedy",
+            >= 37.5f => "rmc-stethoscope-hyper",
+            >= 0.1f => "rmc-stethoscope-irregular",
+            _ => "rmc-stethoscope-dead"
+        };
+
+        var locString = totalHealth is "rmc-stethoscope-nothing" or "rmc-stethoscope-hyper" or "rmc-stethoscope-dead"
+            ? Loc.GetString(totalHealth)
+            : Loc.GetString(totalHealth, ("target", target));
+
+        msg.AddMarkupOrThrow(locString);
         return msg;
     }
 
     private float? GetPercentHealth(EntityUid target)
     {
-        if (!TryComp<DamageableComponent>(target, out var damage) ||
+        if (!TryComp<DamageableComponent>(target, out var damageable) ||
             !TryComp<MobThresholdsComponent>(target, out var thresholds))
         {
             return null;
         }
-        var totalDamage = damage.Damage.GetTotal().Float();
-        var maxThreshold = thresholds.Thresholds.Count > 0 ? (float)thresholds.Thresholds.Keys.Max() : 100f;
-        var healthPercent = 100.0f - MathF.Min(totalDamage / maxThreshold * 100.0f, 100.0f);
-        if (healthPercent > 100.0f)
-            healthPercent = 100.0f;
-        return healthPercent;
+
+        var totalDamage = damageable.Damage.GetTotal().Float();
+        var maxHealthThreshold = thresholds.Thresholds.Count > 0
+            ? (float)thresholds.Thresholds.Keys.Max()
+            : 100f;
+        var damagePercent = totalDamage / maxHealthThreshold * 100.0f;
+        var healthPercent = 100.0f - MathF.Min(damagePercent, 100.0f);
+        return MathF.Max(healthPercent, 0.0f);
     }
 }

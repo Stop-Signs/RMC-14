@@ -60,10 +60,21 @@ rmc-first-aid-container-label-text = FA
 rmc-emergency-medicine-container-label-text = EM
 rmc-dexalin-plus-container-label-text = D+
 rmc-epinephrine-container-label-text = EP
+rmc-keloderm-container-label-text = KD
 rmc-merabic-container-label-text = MB
 rmc-russianred-container-label-text = Rr
+rmc-imidazoline-container-label-text = IM
+rmc-dermaline-container-label-text = DE
+rmc-iron-container-label-text = Fe
 
 rmc-custom-container-label-text = {$customLabel}
+
+# Set Icon Label Verb
+rmc-set-icon-label-verb = Set icon label
+rmc-set-icon-label-dialog-title = Set On-Sprite Label
+rmc-set-icon-label-dialog-prompt = Label text? ({$max} characters maximum)
+rmc-set-icon-label-cleared = You clear the label off {THE($item)}.
+rmc-set-icon-label-set = You label {THE($item)} with '{$label}' in big, blocky letters.
 
 # Antidepressants
 reagent-name-rmcmethylphenidate = Methylphenidate
@@ -78,3 +89,9 @@ reagent-desc-rmcparoxetine = Very powerful antidepressant used to treat: major d
 antidepressant-effect-rmcmethylphenidate = Your mind feels focused and undivided.
 antidepressant-effect-rmccitalopram = Your mind feels stable... a little stable.
 antidepressant-effect-rmcparoxetine = Your mind feels much more stable.
+
+reagent-name-rmcantized = AntiZed
+reagent-desc-rmcantized = A chemical designed for use against Agent A0-3959X.91–15, colloquially known as the "Black Goo".
+
+reagent-name-rmclipozine = Lipozine
+reagent-desc-rmclipozine = Lowers satiation and reduces body weight by increasing ketosis and the rate of which fat is metabolized. Use to treat obesity. Large doses can cause extreme weight loss.

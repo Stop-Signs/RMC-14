@@ -1,5 +1,6 @@
 ﻿rmc-dropship-pre-flight-fueling = The shuttle is still undergoing pre-flight fueling and cannot depart yet. Please wait another {$minutes} minutes before trying again.
 rmc-dropship-pre-hijack = This terminal won't be operational for another {$minutes} minutes.
+rmc-dropship-invalid-hijack = Lights flash from the terminal but you can't comprehend their meaning.
 
 rmc-dropship-weapons-title = Weapons Console
 
@@ -41,6 +42,8 @@ rmc-dropship-weapons-cancel = CANCEL
 rmc-dropship-weapons-exit = EXIT
 rmc-dropship-weapons-lock = LOCK
 rmc-dropship-weapons-clear = CLEAR
+rmc-dropship-weapons-enable = ENABLE
+rmc-dropship-weapons-disable = DISABLE
 
 rmc-dropship-weapons-offset-calibration = Camera
   Offset
@@ -95,4 +98,14 @@ rmc-dropship-paradrop-target-screen-target-none = No locked target found.
 rmc-dropship-paradrop-target-screen-target-targeting = Locked to {$dropTarget}.
     Paradropping available.
 
+rmc-dropship-paradrop-lock-no-target = No target selected.
 rmc-dropship-paradrop-lock-target-not-flying = You can only enable the paradrop module while in flight.
+
+rmc-dropship-medevac-system-screen-text = RMU-4M Medevac System
+
+rmc-dropship-fulton-system-screen-text = RMU-19 Fulton Recovery System
+
+rmc-dropship-locked= This bird is now ours for the next {$minutes} minutes.
+rmc-dropship-locked-out = The shuttle is not responding, try again in {$minutes} minutes.
+rmc-dropship-locked-out-bypass = You partially bypassed the lockout, try again!
+rmc-dropship-locked-out-bypass-complete = You successfully removed the lockout!

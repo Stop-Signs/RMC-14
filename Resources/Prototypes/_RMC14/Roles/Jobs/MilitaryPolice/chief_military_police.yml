@@ -25,7 +25,8 @@
   icon: "CMJobIconChiefMP"
   requireAdminNotify: true
   joinNotifyCrew: false
-  supervisors: cm-job-supervisors-co
+  marineAuthorityLevel: 11
+  supervisors: rmc-job-supervisors-commander
   accessGroups:
   - CMP
   roleWeight: 0.25
@@ -55,8 +56,12 @@
     - type: CommandAccent
     - type: TacticalMapIcon
       icon:
-        sprite: _RMC14/Interface/map_blips.rsi
+        sprite: /Textures/_RMC14/Interface/map_blips.rsi
         state: cmp
+      background:
+        sprite: /Textures/_RMC14/Interface/map_blips.rsi
+        state: background_mp
+    - type: RMCTrackable
 
 - type: startingGear
   id: CMGearChiefMP
@@ -87,6 +92,7 @@
   id: CMJobChiefMP
   isHumanoid: true
 
+# Guidebook
 - type: entity
   parent: CMGuidebookRole
   id: RMCGuidebookRoleCMP

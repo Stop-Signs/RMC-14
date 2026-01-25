@@ -1,3 +1,4 @@
+using System.Linq;
 using Content.Shared._RMC14.Storage;
 using Content.Shared.Hands.Components;
 using Content.Shared.Hands.EntitySystems;
@@ -6,6 +7,7 @@ using Content.Shared.Interaction.Events;
 using Content.Shared.Inventory;
 using Content.Shared.Item;
 using Content.Shared.Mobs;
+using Content.Shared.Mobs.Systems;
 using Content.Shared.Popups;
 using Content.Shared.Storage;
 using Content.Shared.Storage.EntitySystems;
@@ -23,6 +25,7 @@ public abstract class RMCHandsSystem : EntitySystem
     [Dependency] private readonly SharedHandsSystem _hands = default!;
     [Dependency] private readonly InventorySystem _inventory = default!;
     [Dependency] private readonly SharedInteractionSystem _interaction = default!;
+    [Dependency] private readonly MobStateSystem _mobState = default!;
     [Dependency] private readonly SharedPopupSystem _popup = default!;
     [Dependency] private readonly RMCStorageSystem _rmcStorage = default!;
     [Dependency] private readonly EntityWhitelistSystem _whitelist = default!;
@@ -42,7 +45,7 @@ public abstract class RMCHandsSystem : EntitySystem
     {
         foreach (var hand in ent.Comp.Hands)
         {
-            _hands.AddHand(ent, hand.Name, hand.Location);
+            _hands.AddHand(ent.Owner, hand.Name, hand.Location);
         }
     }
 
@@ -61,6 +64,12 @@ public abstract class RMCHandsSystem : EntitySystem
             return;
 
         if (!_whitelist.IsValid(ent.Comp.Whitelist, args.Item))
+        {
+            args.Cancel();
+            return;
+        }
+
+        if (!ent.Comp.AllowDead && _mobState.IsDead(args.Item))
             args.Cancel();
     }
 
@@ -75,9 +84,9 @@ public abstract class RMCHandsSystem : EntitySystem
         if (!TryComp(ent, out HandsComponent? handsComp))
             return;
 
-        foreach (var hand in handsComp.Hands.Values)
+        foreach (var hand in handsComp.Hands.Keys)
         {
-            _hands.TryDrop(ent, hand, checkActionBlocker: false, handsComp: handsComp);
+            _hands.TryDrop((ent, handsComp), hand, checkActionBlocker: false);
         }
     }
 
@@ -87,8 +96,10 @@ public abstract class RMCHandsSystem : EntitySystem
             return;
 
         var user = args.User;
-
         if (!ent.Comp.CanToggleStorage)
+            return;
+
+        if (_container.GetContainingContainers(ent.Owner).All(c => c.Owner != user))
             return;
 
         AlternativeVerb switchStorageVerb = new()
@@ -116,8 +127,12 @@ public abstract class RMCHandsSystem : EntitySystem
 
         args.Verbs.Add(switchStorageVerb);
 
-        if (!_inventory.TryGetContainingSlot(ent.Owner, out var slot))
+        if (!_container.TryGetContainingContainer((ent, null), out var containing) ||
+            containing.Owner != user ||
+            !_inventory.TryGetContainingSlot(ent.Owner, out var slot))
+        {
             return;
+        }
 
         AlternativeVerb unequipVerb = new()
         {
@@ -152,6 +167,9 @@ public abstract class RMCHandsSystem : EntitySystem
             return false;
 
         if (user.Comp != null && !_whitelist.IsValid(user.Comp.Whitelist, item.Owner))
+            return false;
+
+        if (user.Comp is { AllowDead: false } && _mobState.IsDead(item))
             return false;
 
         return true;
@@ -189,7 +207,7 @@ public abstract class RMCHandsSystem : EntitySystem
     public bool TryStorageEjectHand(EntityUid user, string handName)
     {
         if (!_hands.TryGetHand(user, handName, out var hand) ||
-            hand.HeldEntity is not { } held)
+            _hands.GetHeldItem(user, handName) is not { } held)
         {
             return false;
         }
@@ -231,7 +249,7 @@ public abstract class RMCHandsSystem : EntitySystem
             case RMCStorageEjectState.Unequip:
                 return false;
             case RMCStorageEjectState.Open:
-                _storage.OpenStorageUI(item, user, storage, false, false);
+                _storage.OpenStorageUI(item, user, storage, false);
                 return true;
         }
 

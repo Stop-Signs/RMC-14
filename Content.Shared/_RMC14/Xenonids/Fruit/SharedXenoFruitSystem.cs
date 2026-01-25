@@ -7,6 +7,7 @@ using Content.Shared._RMC14.Xenonids.Construction.ResinHole;
 using Content.Shared._RMC14.Xenonids.Egg;
 using Content.Shared._RMC14.Xenonids.Fruit.Components;
 using Content.Shared._RMC14.Xenonids.Fruit.Events;
+using Content.Shared._RMC14.Xenonids.Hedgehog;
 using Content.Shared._RMC14.Xenonids.Hive;
 using Content.Shared._RMC14.Xenonids.Pheromones;
 using Content.Shared._RMC14.Xenonids.Plasma;
@@ -164,11 +165,10 @@ public sealed class SharedXenoFruitSystem : EntitySystem
 
     private void OnActionFruitChosen(Entity<XenoFruitChooseActionComponent> xeno, ref XenoFruitChosenEvent args)
     {
-        if (_actions.TryGetActionData(xeno, out var action) &&
+        if (_actions.GetAction(xeno.Owner) is { } action &&
             _prototype.TryIndex(args.Choice, out var fruit))
         {
-            action.Icon = new SpriteSpecifier.Rsi(new ResPath("_RMC14/Structures/Xenos/xeno_fruit.rsi"), GetFruitSprite(fruit));
-            Dirty(xeno, action);
+            _actions.SetIcon(action.AsNullable(), new SpriteSpecifier.Rsi(new ResPath("_RMC14/Structures/Xenos/xeno_fruit.rsi"), GetFruitSprite(fruit)));
         }
 
         _popup.PopupClient(Loc.GetString("rmc-xeno-fruit-choose", ("fruit", args.Choice)), xeno, xeno);
@@ -440,7 +440,9 @@ public sealed class SharedXenoFruitSystem : EntitySystem
                 [FruitPlantDamageType] = args.HealthCost,
             },
         };
-        _damageable.TryChangeDamage(xeno.Owner, fruitDamage, ignoreResistances: true, interruptsDoAfters: false);
+
+        if (TryComp<DamageableComponent>(xeno, out var damage))
+            _damageable.AddDamage(xeno.Owner, damage, fruitDamage);
 
         // Apply cooldown
         args.Handled = true;
@@ -910,14 +912,12 @@ public sealed class SharedXenoFruitSystem : EntitySystem
     // Shield (unstable fruit)
     private void ApplyFruitShield(Entity<XenoFruitShieldComponent> fruit, EntityUid target)
     {
-        var ent = target;
         var comp = fruit.Comp;
-        var maxShield = _mobThreshold.GetThresholdForState(ent, MobState.Dead) * comp.ShieldRatio;
+        var maxShield = _mobThreshold.GetThresholdForState(target, MobState.Dead) * comp.ShieldRatio;
         var shieldAmount = maxShield < comp.ShieldAmount ? maxShield : comp.ShieldAmount;
 
-        _xenoShield.ApplyShield(ent, XenoShieldSystem.ShieldType.Gardener, shieldAmount,
+        _xenoShield.ApplyShield(target, XenoShieldSystem.ShieldType.Gardener, shieldAmount,
             comp.Duration, comp.ShieldDecay.Double(), true, shieldAmount.Double());
-
         EnsureComp<GardenerShieldComponent>(target);
     }
 
